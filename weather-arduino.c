@@ -25,7 +25,7 @@ char *currentWeather = "GET /data/2.5/weather?";
 
 // Group 6xx: Snow  weather7.png
 
-// Group 7xx: Atmosphere(안개)  weather2.png
+// Group 7xx: Atmosphere(fog)  weather2.png
 
 // Group 800: CLEAR SKY. weather1.png
 

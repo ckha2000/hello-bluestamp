@@ -45,6 +45,7 @@ import pywapi
 import string
 
 from icon_defs import *
+#import myCalendar
 
 #################################################################################
 #Constants
@@ -53,8 +54,8 @@ fn = "freesans"
 sfn = "freemono"
 xmin = 5
 ymin = 5
-xmax = 790
-ymax = 470
+xmax = 795
+ymax = 475
 lines = 5
 
 #################################################################################
@@ -418,32 +419,46 @@ class SmDisplay:
 
         ####################################################################
         def disp_calendar(self):
-
+                
                 self.drawBorder()
 
                 # Conditions
-                ys = 0.20               # Yaxis Start Pos
-                xs = 0.20               # Xaxis Start Pos
-                gp = 0.075              # Line Spacing Gap
-                th = 0.05               # Text Height
+                yStart = 0.20               # Yaxis Start Pos
+                xStart = 0.20               # Xaxis Start Pos
+                spacing = .6/7          # Line Spacing Gap
 
-                cal = calendar.TextCalendar()
+                xDif = xmax - xmin
+                yDif = ymax - ymin
+
                 yr = int( time.strftime( "%Y", time.localtime() ) )     # Get Year
                 mn = int( time.strftime( "%m", time.localtime() ) )     # Get Month
-                '''
-                cal = calendar.month( yr, mn ).splitlines()
-                i = 0
-                for cal_line in cal:
-                        txt = self.sfont.render( cal_line, True, lc )
-                        self.screen.blit( txt, (xmax*xs,ymax*(ys+gp*i)) )
-                        i = i + 1
-                '''
+
+                calendar.setfirstweekday(6)             #set Sunday as first in the week
+                cal = calendar.monthcalendar(yr,mn)     #make cal into matrix
+                mn_name = calendar.month_name[mn]
+
+                calDate = "%s %s" %(mn_name,yr)
+                txt = self.sfont.render(calDate, True, lc)
+                (tx, ty) = txt.get_size() 
+                self.screen.blit(txt, ( (xmax)/2 - tx/2,
+                                        ymin+yDif*(.17)))
                 
-                #c = 
+                days = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                for d in range(0, 7):
+                        txt = self.sfont.render(days[d], True, lc)
+                        self.screen.blit(txt, ( xmin+xDif*(xStart + spacing*d),
+                                                ymin+yDif*(yStart+spacing)))
                 
+                
+                for r in range(0,len(cal)):
+                        for c in range(0, 7):
+                                if (cal[r][c] != 0):
+                                        txt = self.sfont.render(str(cal[r][c]), True, lc)
+                                        self.screen.blit(txt, ( xmin+xDif*(xStart + spacing*c),
+                                                                ymin+yDif*(yStart+spacing*(r+2))))
+        
                 # Update the display
                 pygame.display.update()
-
         ####################################################################
         def sPrint( self, s, font, x, l, lc ): #take out lc
                 f = font.render( s, True, lc )
@@ -451,7 +466,7 @@ class SmDisplay:
 
         ####################################################################
         def disp_help( self, inDaylight, dayHrs, dayMins, tDaylight, tDarkness ):
-
+                
                 self.drawBorder()
 
                 self.sPrint( "Sunrise: %s" % self.sunrise, self.sfont, xmax*0.05, 3, lc )
@@ -715,9 +730,7 @@ while running:
 
         ( inDaylight, dayHrs, dayMins, tDaylight, tDarkness) = Daylight( myDisp.sunrise, myDisp.sunset )
 
-
         # Loop timer.
         pygame.time.wait( 100 )
 
 pygame.quit()
-

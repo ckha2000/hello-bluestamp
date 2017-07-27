@@ -45,8 +45,7 @@ import pywapi
 import string
 
 from icon_defs import *
-#import myCalendar
-
+from buzzer import buzz
 #################################################################################
 #Constants
 lc = (255,255,255) 
@@ -58,16 +57,19 @@ xmax = 795
 ymax = 475
 lines = 5
 
+zip = ['94030', '94112', '95616', '90001']
+i = 0
+
 #################################################################################
 # Setup GPIO pin BCM GPIO04
 import RPi.GPIO as GPIO
 GPIO.setmode( GPIO.BCM )
-GPIO.setup( 4, GPIO.IN, pull_up_down=GPIO.PUD_DOWN )    # Next 
-GPIO.setup( 17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN )   # Shutdown
+
+GPIO.setup(18,GPIO.IN, pull_up_down=GPIO.PUD_UP)        #Switch zip code
+GPIO.setup(25,GPIO.IN, pull_up_down=GPIO.PUD_UP)        #Turn off alarm
+GPIO.setup(12,GPIO.IN, pull_up_down=GPIO.PUD_UP)        #Next mode
 
 mouseX, mouseY = 0, 0
-mode = 'w'              # Default to weather mode.
-
 ###############################################################################
 def getIcon( w, i ):
         try:
@@ -119,8 +121,7 @@ class SmDisplay:
                 # Render the screen
                 pygame.mouse.set_visible(0)
                 pygame.display.update()
-                #for fontname in pygame.font.get_fonts():
-                #        print fontname
+
                 self.temp = ''
                 self.feels_like = 0
                 self.wind_speed = 0
@@ -132,9 +133,12 @@ class SmDisplay:
                 self.icon = [ 0, 0, 0, 0 ]
                 self.rain = [ '', '', '', '' ]
                 self.temps = [ ['',''], ['',''], ['',''], ['',''] ]
+                self.t_range = [0, 0]
+                
                 self.sunrise = '7:00 AM'
                 self.sunset = '8:00 PM'
-
+                self.loc = ''
+                self.tdWeather = ''
 
                 self.xmax = 825 - 35
                 self.ymax = 475 - 5
@@ -148,7 +152,6 @@ class SmDisplay:
                 self.font = pygame.font.SysFont( fn, int(ymax*self.tmdateTh), bold=1 )   # Regular Font
                 self.sfont = pygame.font.SysFont( fn, int(ymax*self.tmdateSmTh), bold=1 ) # Small Font for Seconds
 
-                
         ####################################################################
         def __del__(self):
                 "Destructor to make sure pygame shuts down, etc."
@@ -160,11 +163,14 @@ class SmDisplay:
                 f = 'forecasts'
 
                 # This is where the magic happens. 
-                self.w = pywapi.get_weather_from_weather_com( '94112', units='imperial' )
+                #self.w = pywapi.get_weather_from_weather_com( '94112', units='imperial' )
+                
+                self.w = pywapi.get_weather_from_weather_com( zip[i], units='imperial' )
+
                 w = self.w
                 try:
-                        if ( w[cc]['last_updated'] != self.wLastUpdate ):
-                                self.wLastUpdate = w[cc]['last_updated']
+                        #if ( w[cc]['last_updated'] != self.wLastUpdate ):
+                                #self.wLastUpdate = w[cc]['last_updated']
                                 print "New Weather Update: " + self.wLastUpdate
                                 self.temp = string.lower( w[cc]['temperature'] )
                                 self.feels_like = string.lower( w[cc]['feels_like'] )
@@ -175,18 +181,26 @@ class SmDisplay:
                                 self.vis = string.upper( w[cc]['visibility'] )
                                 self.gust = string.upper( w[cc]['wind']['gust'] )
                                 self.wind_direction = string.upper( w[cc]['wind']['direction'] )
+
+                                self.loc = w['location']['name']
+                                print self.loc
+                                
+                                self.tdWeather = self.w[cc]['text']
+                                print(self.tdWeather)
+                                
                                 self.day[0] = w[f][0]['day_of_week']
                                 self.day[1] = w[f][1]['day_of_week']
                                 self.day[2] = w[f][2]['day_of_week']
                                 self.day[3] = w[f][3]['day_of_week']
                                 self.sunrise = w[f][0]['sunrise']
                                 self.sunset = w[f][0]['sunset']
+                                
                                 self.icon[0] = getIcon( w, 0 )
                                 self.icon[1] = getIcon( w, 1 )
                                 self.icon[2] = getIcon( w, 2 )
                                 self.icon[3] = getIcon( w, 3 )
                                 print 'Icon Index: ', self.icon[0], self.icon[1], self.icon[2], self.icon[3]
-                                #print 'File: ', sd+icons[self.icon[0]]
+
                                 self.rain[0] = w[f][0]['day']['chance_precip']
                                 self.rain[1] = w[f][1]['day']['chance_precip']
                                 self.rain[2] = w[f][2]['day']['chance_precip']
@@ -195,15 +209,17 @@ class SmDisplay:
                                         self.temps[0][0] = '--'
                                 else:   
                                         self.temps[0][0] = w[f][0]['high'] + unichr(0x2109)
-                                self.temps[0][1] = w[f][0]['low'] + unichr(0x2109)
-                                self.temps[1][0] = w[f][1]['high'] + unichr(0x2109)
-                                self.temps[1][1] = w[f][1]['low'] + unichr(0x2109)
-                                self.temps[2][0] = w[f][2]['high'] + unichr(0x2109)
-                                self.temps[2][1] = w[f][2]['low'] + unichr(0x2109)
-                                self.temps[3][0] = w[f][3]['high'] + unichr(0x2109)
-                                self.temps[3][1] = w[f][3]['low'] + unichr(0x2109)
+                                        self.temps[0][1] = w[f][0]['low'] + unichr(0x2109)
+                                        self.temps[1][0] = w[f][1]['high'] + unichr(0x2109)
+                                        self.temps[1][1] = w[f][1]['low'] + unichr(0x2109)
+                                        self.temps[2][0] = w[f][2]['high'] + unichr(0x2109)
+                                        self.temps[2][1] = w[f][2]['low'] + unichr(0x2109)
+                                        self.temps[3][0] = w[f][3]['high'] + unichr(0x2109)
+                                        self.temps[3][1] = w[f][3]['low'] + unichr(0x2109)
 
-                                #self.loc = w[
+                                        self.t_range[0] = w[f][0]['low']
+                                        self.t_range[1] = w[f][0]['high']
+
                 except KeyError:
                         print "KeyError -> Weather Error"
                         self.temp = '??'
@@ -352,7 +368,7 @@ class SmDisplay:
                 txt = font.render( self.temps[1][0] + ' / ' + self.temps[1][1], True, lc )
                 (tx,ty) = txt.get_size()
                 self.screen.blit( txt, (xmax*wx*3-tx/2,ymax*(wy+gp*5)) )
-                #self.screen.blit( rtxt, (xmax*wx*2+ro,ymax*(wy+gp*5)) )
+
                 rptxt = rpfont.render( self.rain[1]+'%', True, lc )
                 (tx,ty) = rptxt.get_size()
                 self.screen.blit( rptxt, (xmax*wx*3-tx/2,ymax*(wy+gp*rpl)) )
@@ -375,7 +391,7 @@ class SmDisplay:
                 txt = font.render( self.temps[2][0] + ' / ' + self.temps[2][1], True, lc )
                 (tx,ty) = txt.get_size()
                 self.screen.blit( txt, (xmax*wx*5-tx/2,ymax*(wy+gp*5)) )
-                #self.screen.blit( rtxt, (xmax*wx*4+ro,ymax*(wy+gp*5)) )
+                
                 rptxt = rpfont.render( self.rain[2]+'%', True, lc )
                 (tx,ty) = rptxt.get_size()
                 self.screen.blit( rptxt, (xmax*wx*5-tx/2,ymax*(wy+gp*rpl)) )
@@ -398,7 +414,7 @@ class SmDisplay:
                 txt = font.render( self.temps[3][0] + ' / ' + self.temps[3][1], True, lc )
                 (tx,ty) = txt.get_size()
                 self.screen.blit( txt, (xmax*wx*7-tx/2,ymax*(wy+gp*5)) )
-                #self.screen.blit( rtxt, (xmax*wx*6+ro,ymax*(wy+gp*5)) )
+
                 rptxt = rpfont.render( self.rain[3]+'%', True, lc )
                 (tx,ty) = rptxt.get_size()
                 self.screen.blit( rptxt, (xmax*wx*7-tx/2,ymax*(wy+gp*rpl)) )
@@ -499,8 +515,8 @@ class SmDisplay:
                 s = "Visability %smi" % self.vis
                 self.sPrint( s, self.sfont, xmax*0.05, 10, lc )
 
-                #s = "Location: %s" % 
-                #self.sPrint( s, self.sfont, xmax*0.05, 11, lc )
+                s = "Location: %s" % self.loc
+                self.sPrint( s, self.sfont, xmax*0.05, 11, lc )
 
                 # Update the display
                 pygame.display.update()
@@ -516,6 +532,72 @@ class SmDisplay:
 
 # Helper function to which takes seconds and returns (hours, minutes).
 ############################################################################
+        def updateScreen(self):
+                if mode == w:
+                        self.disp_weather()
+                if mode == h:
+                        self.disp_help()
+                if mode == c:
+                        self.disp_calendar()
+                        
+##############################################################################
+#############################################################################
+class alarm:
+        def _init_(self):
+                self.rTime = 0                       #alarm set time
+                self.isRinging = False
+                self.curr_time = 0
+
+                self.input_state25 = False
+
+        def setup(self, alarm):
+                self.rTime = alarm
+                self.isRinging = False
+                self.curr_time = 0
+
+                self.input_state25 = False
+                self.prev_input25 = True
+
+        def ringOnce(self):
+                buzz(10,0.5)
+                time.sleep(.25)
+                buzz(10,0.5)
+                time.sleep(.25)
+                
+        def checkAlarm(self):
+                self.curr_time = int(time.strftime("%H%M%S"))
+
+                #print(self.rTime)
+                
+                if self.curr_time == self.rTime:
+                        self.isRinging = True
+     
+                if self.isRinging:
+                                self.ringOnce()
+                                self.checkSnooze()
+                        
+        def checkSnooze(self):                  #pin 25 button - stop alarm
+                global t
+                
+                self.input_state25 = GPIO.input(25)
+                
+                #if (((not (self.prev_input25)) and (self.input_state25)) and (self.isRinging)):
+                if ((not self.input_state25) and self.isRinging):
+                        print("stop alarm")
+                        #print(self.isRinging)
+                        
+                        self.isRinging = False
+
+                        #print(self.isRinging)
+                        time.sleep(0.2)
+                        readWeather()
+                        
+                        print(self.rTime)
+                        self.rTime = t
+                        print(self.rTime)
+                
+##############################################################################
+######
 def stot( sec ):
         min = sec.seconds // 60
         hrs = min // 60
@@ -581,87 +663,97 @@ def Daylight( sr, st ):
 
 
 ############################################################################
-def btnNext( channel ):
+def btnNext():                          #channel
         global mode, dispTO
 
-        if ( mode == 'c' ): mode = 'w'
-        elif (mode == 'w' ): mode ='h'
-        elif (mode == 'h' ): mode ='c'
+        if ( mode == 'w' ): mode = 'c'
+        elif (mode == 'c' ): mode ='h'
+        elif (mode == 'h' ): mode ='w'
 
         dispTO = 0
 
-        print "Button Event!"
+        #print "Button Event!"
+##################################################################################
+def buttonHandler():
+        global prev_input18, i, prev_input12
+        
+        #switch weather button
+        input_state18 = GPIO.input(18)
+        
+        if((not prev_input18) and input_state18):
+                i += 1
+                if i >= len(zip):
+                        i = 0   
+                myDisp.UpdateWeather()
+                
+        prev_input18 = input_state18
 
 
+        #next mode button
+        input_state12 = GPIO.input(12)
 
-# Display all the available fonts.
-#print "Fonts: ", pygame.font.get_fonts()
+        if((not prev_input12) and input_state12):
+                btnNext()
+                
+        prev_input12 = input_state12
+        
+
+###############################################################################        
+def readWeather():
+        date = time.strftime("%A %B %d %Y", time.localtime())
+        date_message = "Today is " + date
+        readMessage(date_message)
+
+        w_message = "It is currently " + myDisp.tdWeather
+        readMessage(w_message)
+
+        print(myDisp.temps[0][0])
+        print(myDisp.temps[0][1])
+        
+        t_message = "The temperature outside will range from %s to %s degrees fahrenheit." %(myDisp.t_range[0], myDisp.t_range[1])
+        readMessage(t_message)
+###################################
+def readMessage(string):
+    m = "echo " + string + " |festival --tts"
+    os.system(m)
+
+##################################
 
 mode = 'w'              # Default to weather mode.
 
 # Create an instance of the lcd display class.
 myDisp = SmDisplay()
 
+
+#alarm class setup
+t = 70000                       #alarm ring time HHMMSS - exclude leading zeros 
+myAlarm = alarm()               #for single digit h
+myAlarm.setup(t)
+
+
 running = True          # Stay running while True
 s = 0                   # Seconds Placeholder to pace display.
-dispTO = 0              # Display timeout to automatically switch back to weather dispaly.
+dispTO = 0              # Display timeout to automatically switch back to weather mode.
+
 
 # Loads data from Weather.com into class variables.
 if myDisp.UpdateWeather() == False:
         print 'Error: no data from Weather.com.'
         running = False
 
-# Attach GPIO callback to our new button input on pin #4.
-GPIO.add_event_detect( 4, GPIO.RISING, callback=btnNext, bouncetime=400)
-#GPIO.add_event_detect( 17, GPIO.RISING, callback=btnShutdown, bouncetime=100)
-btnShutdownCnt = 0
-
-if GPIO.input( 17 ):
-        print "Warning: Shutdown Switch is Active!"
-        myDisp.screen.fill( (0,0,0) )
-        icon = pygame.image.load(sd + 'shutdown.jpg')
-        (ix,iy) = icon.get_size()
-        myDisp.screen.blit( icon, (800/2-ix/2,400/2-iy/2) )
-        font = pygame.font.SysFont( "freesans", 40, bold=1 )
-        rf = font.render( "Please toggle shutdown siwtch.", True, (255,255,255) )
-        (tx1,ty1) = rf.get_size()
-        myDisp.screen.blit( rf, (800/2-tx1/2,iy+20) )
-        pygame.display.update()
-        pygame.time.wait( 1000 )
-        while GPIO.input( 17 ): pygame.time.wait(100)
-
-
+#button input
+prev_input18 = True
+prev_input12 = True
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 while running:
-
-        # Debounce the shutdown switch. The main loop rnus at 100ms. So, if the 
-        # button (well, a switch really) counter "btnShutdownCnt" counts above
-        # 25 then the switch must have been on continuously for 2.5 seconds.
-        if GPIO.input( 17 ):
-                btnShutdownCnt += 1
-                if btnShutdownCnt > 25:
-                        print "Shutdown!"
-                        myDisp.screen.fill( (0,0,0) )
-                        icon = pygame.image.load(sd + 'shutdown.jpg')
-                        (ix,iy) = icon.get_size()
-                        myDisp.screen.blit( icon, (800/2-ix/2,400/2-iy/2) )
-                        font = pygame.font.SysFont( "freesans", 60, bold=1 )
-                        rtm1 = font.render( "Shuting Down!", True, (255,255,255) )
-                        (tx1,ty1) = rtm1.get_size()
-                        myDisp.screen.blit( rtm1, (800/2-tx1/2,iy+20) )
-                        pygame.display.update()
-                        pygame.time.wait( 1000 )
-                        #os.system("sudo shutdown -h now")
-                        while GPIO.input( 17 ): pygame.time.wait(100)
-        else:
-                btnShutdownCnt = 0
+        buttonHandler()
 
         # Look for and process keyboard events to change modes.
         for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
                         # On 'q' or keypad enter key, quit the program.
-                        if (( event.key == K_KP_ENTER ) or (event.key == K_q)):
+                        if (event.key == K_q):
                                 running = False
 
                         # On 'c' key, set mode to 'calendar'.
@@ -683,10 +775,15 @@ while running:
                                 mode = 'h'
                                 dispTO = 0
 
+                        #On 'a' key, set alarm time to time in one sec
+                        elif ( event.key == K_a ):
+                                myAlarm.rTime = myAlarm.curr_time + 1
+                                
+
         # Automatically switch back to weather display after a couple minutes.
         if mode != 'w':
                 dispTO += 1
-                if dispTO > 3000:       # Five minute timeout at 100ms loop rate.
+                if dispTO >= 600:     #One minute timeout at 100ms loop rate.
                         mode = 'w'
         else:
                 dispTO = 0
@@ -703,8 +800,8 @@ while running:
                 # Update / Refresh the display after each second.
                 if ( s != time.localtime().tm_sec ):
                         s = time.localtime().tm_sec
-                        myDisp.disp_weather()   
-                        #ser.write( "Weather\r\n" )
+                        myDisp.disp_weather()
+                        
                 # Once the screen is updated, we have a full second to get the weather.
                 # Once per minute, update the weather from the net.
                 if ( s == 0 ):
@@ -717,19 +814,14 @@ while running:
 
                         ( inDaylight, dayHrs, dayMins, tDaylight, tDarkness) = Daylight( myDisp.sunrise, myDisp.sunset )
 
-                        #if inDaylight:
-                        #       print "Time until dark (Hr:Min) -> %d:%d" % stot( tDarkness )
-                        #else:
-                        #       #print 'tDaylight ->', tDaylight
-                        #       print "Time until daybreak (Hr:Min) -> %d:%d" % stot( tDaylight )
-
-                        # Stat Screen Display.
                         myDisp.disp_help( inDaylight, dayHrs, dayMins, tDaylight, tDarkness )
                 # Refresh the weather data once per minute.
                 if ( int(s) == 0 ): myDisp.UpdateWeather()
 
         ( inDaylight, dayHrs, dayMins, tDaylight, tDarkness) = Daylight( myDisp.sunrise, myDisp.sunset )
 
+        myAlarm.checkAlarm()
+        
         # Loop timer.
         pygame.time.wait( 100 )
 
